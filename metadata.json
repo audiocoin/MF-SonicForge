@@ -1,0 +1,7 @@
+{
+  "name": "MF SonicForge",
+  "description": "An advanced AI-powered musical companion featuring a precision tuner, effects studio, generative jam sessions, and smart musical tools.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
