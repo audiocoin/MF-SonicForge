@@ -1,6 +1,53 @@
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, AlertTriangle, ExternalLink, Settings } from 'lucide-react';
+
+export const ApiKeyWarning: React.FC = () => (
+  <div className="flex flex-col items-center justify-center p-8 text-center h-full max-w-2xl mx-auto animate-in fade-in zoom-in duration-300">
+    <div className="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center mb-6 border-4 border-yellow-500/20 shadow-[0_0_40px_rgba(234,179,8,0.2)]">
+      <AlertTriangle className="w-10 h-10 text-yellow-500" />
+    </div>
+    <h2 className="text-3xl font-bold text-white mb-4">AI Features Locked</h2>
+    <p className="text-gray-400 mb-8 text-lg">
+      To use the AI Jam Session, Tab Generator, and Chord Library, you need to configure your Google Gemini API Key.
+    </p>
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full text-left">
+      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+        <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+          <Settings className="w-4 h-4 text-blue-400" /> Local Development
+        </h3>
+        <ol className="list-decimal list-inside text-sm text-gray-400 space-y-2">
+          <li>Create a file named <code className="bg-gray-950 px-1 py-0.5 rounded text-yellow-500">.env</code> in the project root.</li>
+          <li>Add this line: <code className="block bg-gray-950 p-2 rounded mt-1 text-gray-300 select-all">GEMINI_API_KEY=your_key_here</code></li>
+          <li>Restart the dev server.</li>
+        </ol>
+      </div>
+
+      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+        <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+          <ExternalLink className="w-4 h-4 text-purple-400" /> Vercel Deployment
+        </h3>
+        <ol className="list-decimal list-inside text-sm text-gray-400 space-y-2">
+          <li>Go to your Vercel Project Dashboard.</li>
+          <li>Navigate to <strong>Settings</strong> &rarr; <strong>Environment Variables</strong>.</li>
+          <li>Add Key: <code className="text-yellow-500">GEMINI_API_KEY</code></li>
+          <li>Paste your key as the Value and Save.</li>
+          <li>Redeploy your project.</li>
+        </ol>
+      </div>
+    </div>
+
+    <a 
+      href="https://aistudio.google.com/app/apikey" 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="mt-8 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-full transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+    >
+      Get Free Gemini API Key <ExternalLink className="w-4 h-4" />
+    </a>
+  </div>
+);
 
 // --- CONTROL SLIDER (Vertical Fader) ---
 export const ControlSlider: React.FC<{ 

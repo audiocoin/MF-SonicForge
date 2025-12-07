@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { SongDetector } from '../../services/ai/SongDetector';
 import { DetectedSong } from '../../types';
 import { Mic, Loader2, GraduationCap } from 'lucide-react';
+import { ApiKeyWarning } from '../SharedAudioUI';
 
 interface SongIdentifierProps {
   onNavigateToAcademy: (query: string) => void;
@@ -16,6 +17,7 @@ export const SongIdentifier: React.FC<SongIdentifierProps> = ({ onNavigateToAcad
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const detector = useRef(new SongDetector());
+  const hasApiKey = !!process.env.API_KEY;
 
   const startRecording = async () => {
     try {
@@ -54,6 +56,8 @@ export const SongIdentifier: React.FC<SongIdentifierProps> = ({ onNavigateToAcad
       setRecording(false);
     }
   };
+
+  if (!hasApiKey) return <ApiKeyWarning />;
 
   return (
     <div className="flex flex-col items-center justify-center h-96 bg-gray-850 rounded-2xl border border-gray-700 p-6">

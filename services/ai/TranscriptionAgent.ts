@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { TabResult } from "../../types";
 
@@ -8,13 +7,20 @@ export interface TranscriptionOptions {
 }
 
 export class TranscriptionAgent {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = process.env.API_KEY;
+    if (key) {
+        this.ai = new GoogleGenAI({ apiKey: key });
+    }
   }
 
   async generateTabFromQuery(query: string, options: TranscriptionOptions = { instrument: 'Guitar', difficulty: 'Intermediate' }): Promise<TabResult | null> {
+    if (!this.ai) {
+        console.error("Gemini API Key is missing.");
+        return null;
+    }
     try {
       const response = await this.ai.models.generateContent({
         model: "gemini-3-pro-preview",
@@ -41,6 +47,10 @@ export class TranscriptionAgent {
   }
 
   async generateTabFromAudio(base64Audio: string, options: TranscriptionOptions = { instrument: 'Guitar', difficulty: 'Intermediate' }): Promise<TabResult | null> {
+    if (!this.ai) {
+        console.error("Gemini API Key is missing.");
+        return null;
+    }
     try {
       const response = await this.ai.models.generateContent({
         model: "gemini-2.5-flash", 

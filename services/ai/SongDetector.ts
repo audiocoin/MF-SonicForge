@@ -1,15 +1,22 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { DetectedSong } from "../../types";
 
 export class SongDetector {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Safe initialization: Don't crash if key is missing during render
+    const key = process.env.API_KEY;
+    if (key) {
+        this.ai = new GoogleGenAI({ apiKey: key });
+    }
   }
 
   async detect(base64Audio: string): Promise<DetectedSong | null> {
+    if (!this.ai) {
+        console.error("Gemini API Key is missing. Please check your settings.");
+        return null;
+    }
     try {
       const response = await this.ai.models.generateContent({
         model: "gemini-2.5-flash",

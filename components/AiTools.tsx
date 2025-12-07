@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { TabEngine, TabInstrumentMode } from '../services/tabEngine';
 import { TabResult } from '../types';
@@ -7,6 +6,7 @@ import { TabSearch } from './tools/TabSearch';
 import { AudioToTab } from './tools/AudioToTab';
 import { SongIdentifier } from './tools/SongIdentifier';
 import { TabLibrary } from './tools/TabLibrary';
+import { ApiKeyWarning } from './SharedAudioUI';
 import { FileText, Music, FileAudio, Library, Play, Square, Save, Info, GraduationCap } from 'lucide-react';
 
 interface AiToolsProps {
@@ -24,6 +24,8 @@ const AiTools: React.FC<AiToolsProps> = ({ onNavigateToAcademy }) => {
   const [instMode, setInstMode] = useState<TabInstrumentMode>('clean');
   const [capo, setCapo] = useState(0);
   const [tuningName, setTuningName] = useState('Standard');
+  
+  const hasApiKey = !!process.env.API_KEY;
 
   const tabPlayerRef = useRef<TabEngine | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -105,6 +107,20 @@ const AiTools: React.FC<AiToolsProps> = ({ onNavigateToAcademy }) => {
         localStorage.setItem('sonicforge_saved_tabs', JSON.stringify(tabs));
     }
   };
+
+  if (!hasApiKey && (activeTab as string) !== 'library') {
+      return (
+        <div className="p-6 max-w-5xl mx-auto h-full flex flex-col">
+            <div className="flex justify-center mb-8 gap-4 flex-wrap">
+                <button onClick={() => setActiveTab('tabs')} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'tabs' ? 'bg-primary-600 text-white' : 'bg-gray-800 text-gray-400'}`}><FileText className="w-5 h-5" /> Tab Finder</button>
+                <button onClick={() => setActiveTab('library')} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'library' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Library className="w-5 h-5" /> Library</button>
+            </div>
+            <div className="flex-1">
+                <ApiKeyWarning />
+            </div>
+        </div>
+      );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto h-full animate-in fade-in duration-500">

@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { JamComposer } from '../services/ai/JamComposer';
 import { JamEngine, JamGroove } from '../services/audioEngine';
 import { JamBlueprint } from '../types';
+import { ApiKeyWarning } from './SharedAudioUI';
 import { Sparkles, Music2, PlayCircle, Loader2, StopCircle, Sliders, Volume2, VolumeX, Music4, Drum, Guitar, Mic2, AudioWaveform, Download, AlignLeft } from 'lucide-react';
 
 const JamSession: React.FC = () => {
@@ -14,6 +15,8 @@ const JamSession: React.FC = () => {
   const [currentChordIndex, setCurrentChordIndex] = useState(-1);
   const [tempo, setTempo] = useState(120);
   const [groove, setGroove] = useState<JamGroove>('Basic');
+  
+  const hasApiKey = !!process.env.API_KEY;
 
   const [loadingAiAudio, setLoadingAiAudio] = useState(false);
   const [hasAiAudio, setHasAiAudio] = useState(false);
@@ -170,6 +173,8 @@ const JamSession: React.FC = () => {
         default: return <Music2 className="w-5 h-5" />;
     }
   };
+
+  if (!hasApiKey) return <ApiKeyWarning />;
 
   return (
     <div className="p-6 h-full flex flex-col max-w-5xl mx-auto animate-in fade-in duration-500 overflow-y-auto">

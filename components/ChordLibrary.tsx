@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { ChordGenerator } from '../services/ai/ChordGenerator';
 import { ChordDiagram } from '../types';
+import { ApiKeyWarning } from './SharedAudioUI';
 import { Search, Loader2 } from 'lucide-react';
 
 const INSTRUMENTS = ['Guitar', 'Ukulele', 'Banjo', 'Mandolin'];
@@ -15,6 +16,7 @@ const ChordLibrary: React.FC = () => {
   const [diagram, setDiagram] = useState<ChordDiagram | null>(null);
   const [loading, setLoading] = useState(false);
   const generator = useRef(new ChordGenerator());
+  const hasApiKey = !!process.env.API_KEY;
 
   const fetchChord = async () => {
     setLoading(true);
@@ -22,6 +24,8 @@ const ChordLibrary: React.FC = () => {
     setDiagram(result);
     setLoading(false);
   };
+
+  if (!hasApiKey) return <ApiKeyWarning />;
 
   return (
     <div className="p-6 h-full flex flex-col items-center animate-in fade-in duration-500 max-w-5xl mx-auto">

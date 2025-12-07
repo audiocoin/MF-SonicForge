@@ -1,15 +1,21 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { JamBlueprint } from "../../types";
 
 export class JamComposer {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = process.env.API_KEY;
+    if (key) {
+        this.ai = new GoogleGenAI({ apiKey: key });
+    }
   }
 
   async generateBlueprint(prompt: string): Promise<JamBlueprint | null> {
+    if (!this.ai) {
+        console.error("Gemini API Key is missing.");
+        return null;
+    }
     try {
       const response = await this.ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -36,6 +42,7 @@ export class JamComposer {
   }
 
   async generateInstrumentLoop(style: string, tempo: number, instrument: string): Promise<string | null> {
+    if (!this.ai) return null;
     try {
       const prompt = instrument === 'drums' 
         ? `(Beatbox rhythm for ${style} at ${tempo} bpm). Boots cats boots cats.` 
