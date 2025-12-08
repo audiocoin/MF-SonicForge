@@ -7,6 +7,7 @@ import DrumMachine from './components/DrumMachine';
 import ChordLibrary from './components/ChordLibrary';
 import VoiceStudio from './components/VoiceStudio';
 import Academy from './components/Academy';
+import { Metronome } from './components/Metronome';
 import { AppMode } from './types';
 import { Mic2, Sliders, Bot, Menu, X, Waves, Drum, Grid, Mic, GraduationCap } from 'lucide-react';
 
@@ -42,8 +43,11 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen w-screen bg-gray-950 overflow-hidden font-sans selection:bg-primary-500/30">
+    <div className="flex h-[100dvh] w-full bg-gray-950 overflow-hidden font-sans selection:bg-primary-500/30">
       
+      {/* Global Metronome Overlay */}
+      <Metronome />
+
       {/* Mobile Menu Overlay */}
       {menuOpen && (
         <div className="fixed inset-0 bg-black/80 z-40 lg:hidden" onClick={() => setMenuOpen(false)} />
@@ -84,7 +88,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-0 w-full p-6 border-t border-gray-800 bg-gray-900">
            <div className="text-xs text-gray-500">
              <p>Powered by Gemini 2.5 Flash</p>
-             <p className="mt-1">v1.1.0</p>
+             <p className="mt-1">v1.2.1</p>
            </div>
         </div>
       </aside>
@@ -92,11 +96,11 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
         {/* Mobile Header */}
-        <div className="lg:hidden h-16 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-900/50 backdrop-blur-md sticky top-0 z-30">
+        <div className="lg:hidden h-16 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-900/50 backdrop-blur-md sticky top-0 z-30 shrink-0">
           <button onClick={() => setMenuOpen(true)} className="text-white p-2">
             <Menu />
           </button>
-          <span className="font-bold text-white text-sm">
+          <span className="font-bold text-white text-sm truncate max-w-[200px]">
             {mode === AppMode.TUNER && 'Chromatic Tuner'}
             {mode === AppMode.EFFECTS && 'FX Studio'}
             {mode === AppMode.AI_TOOLS && 'AI Music Tools'}

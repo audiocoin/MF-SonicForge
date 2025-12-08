@@ -36,7 +36,7 @@ export const TabSearch: React.FC<TabSearchProps> = ({ onResult }) => {
   };
 
   return (
-    <div className="bg-gray-850 p-6 rounded-2xl border border-gray-700 shadow-xl">
+    <div className="bg-gray-850 p-4 md:p-6 rounded-2xl border border-gray-700 shadow-xl">
        <div className="flex flex-col md:flex-row gap-4 mb-6">
          <div className="flex-1 flex gap-4">
             <input 
@@ -44,23 +44,23 @@ export const TabSearch: React.FC<TabSearchProps> = ({ onResult }) => {
                 placeholder="Enter song name..." 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                className="flex-1 bg-gray-950 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 w-full"
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
          </div>
-         <div className="flex gap-2">
-             <select value={instrument} onChange={(e) => setInstrument(e.target.value)} className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+         <div className="flex flex-wrap gap-2">
+             <select value={instrument} onChange={(e) => setInstrument(e.target.value)} className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm flex-1 md:flex-none">
                  <option value="Guitar">Guitar</option>
                  <option value="Bass">Bass</option>
                  <option value="Ukulele">Ukulele</option>
              </select>
-             <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as any)} className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm">
+             <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as any)} className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm flex-1 md:flex-none">
                  <option value="Beginner">Beginner</option>
                  <option value="Intermediate">Intermediate</option>
                  <option value="Advanced">Advanced</option>
              </select>
-             <button onClick={handleSearch} disabled={loading} className="bg-primary-600 hover:bg-primary-500 text-white px-6 py-2 rounded-lg font-bold min-w-[100px] flex justify-center">
-               {loading ? <Loader2 className="animate-spin" /> : <Search />}
+             <button onClick={handleSearch} disabled={loading} className="bg-primary-600 hover:bg-primary-500 text-white px-6 py-2 rounded-lg font-bold min-w-[80px] flex justify-center items-center flex-1 md:flex-none">
+               {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Search className="w-5 h-5" />}
              </button>
          </div>
        </div>

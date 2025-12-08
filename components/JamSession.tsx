@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { JamComposer } from '../services/ai/JamComposer';
 import { JamEngine, JamGroove } from '../services/audioEngine';
 import { JamBlueprint } from '../types';
@@ -38,6 +38,18 @@ const JamSession: React.FC = () => {
         if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, []);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement)) {
+            e.preventDefault();
+            togglePlay(); 
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, blueprint, tempo, groove]); // Dependencies
 
   useEffect(() => {
       if (isPlaying && canvasRef.current) {
@@ -129,9 +141,9 @@ const JamSession: React.FC = () => {
     }
   };
 
-  const togglePlay = async () => {
+  const togglePlay = useCallback(async () => {
     if (!blueprint || !engineRef.current) return;
-    if (isPlaying) {
+    if (engineRef.current.isPlaying) { // Check ref state directly to avoid closure staleness issues if possible
       engineRef.current.stop();
       setIsPlaying(false);
       setCurrentChordIndex(-1);
@@ -146,7 +158,7 @@ const JamSession: React.FC = () => {
           engineRef.current?.setTrackVolume(track, mix[track]);
       });
     }
-  };
+  }, [blueprint, tempo, groove, mix]); 
 
   const handleTempoChange = (val: number) => {
     setTempo(val);
@@ -344,9 +356,12 @@ const JamSession: React.FC = () => {
                 <div className={`text-4xl font-black tracking-tighter ${isPlaying ? 'text-white' : 'text-gray-600'}`}>
                     {initializingAudio ? 'LOADING...' : (isPlaying ? 'ON AIR' : 'READY')}
                 </div>
-                <div className="text-xs text-gray-500 font-mono">
-                    {hasAiAudio ? 'AI AUDIO ENGINE' : 'GENERATIVE ENGINE'}
-                </div>
+                {hasAiAudio ? (
+                    <div className="text-[10px] bg-purple-900/40 text-purple-300 px-2 py-1 rounded inline-block font-bold">AI AUDIO ENGINE</div>
+                ) : (
+                    <div className="text-xs text-gray-500 font-mono">GENERATIVE ENGINE</div>
+                )}
+                <div className="text-[10px] text-gray-600 pt-2 font-mono">PRESS SPACEBAR TO PLAY/STOP</div>
                 {loadingAiAudio && <div className="text-[10px] text-purple-400 animate-pulse font-bold mt-2">AI AUDIO GENERATING IN BACKGROUND...</div>}
              </div>
           </div>

@@ -72,8 +72,6 @@ export class EffectsEngine {
 
   static async getAudioInputs() {
     try {
-        // Do NOT call getUserMedia here, as it triggers the mic permission prompt automatically.
-        // We only list devices. Labels might be empty until permission is granted elsewhere.
         const devices = await navigator.mediaDevices.enumerateDevices();
         return devices.filter(d => d.kind === 'audioinput');
     } catch(e) {
@@ -85,16 +83,13 @@ export class EffectsEngine {
     if (!this.audioContext) this.audioContext = new AudioContext();
     if (this.audioContext.state === 'suspended') await this.audioContext.resume();
     
-    // If we already have a stream and it matches the deviceId (or no specific device requested), reuse it
     if (this.rawStreamNode) {
         const currentTrack = this.rawStreamNode.mediaStream.getAudioTracks()[0];
         const currentSettings = currentTrack.getSettings();
         if (!deviceId || currentSettings.deviceId === deviceId) {
-            // Stream exists and is valid, just ensure gates are open
             if (this.micGate) this.micGate.gain.setTargetAtTime(1, this.audioContext.currentTime, 0.1);
             return;
         }
-        // If device ID changed, stop old stream
         this.stopMicStream();
     }
 
@@ -122,12 +117,15 @@ export class EffectsEngine {
     this.micGate.gain.value = 1; 
   }
 
+  async loadCabIR(blob: Blob) {
+      if (!this.voiceGraph) return;
+      await this.voiceGraph.amp.cabinet.loadImpulse(blob);
+  }
+
   stopMicStream() {
     if (this.micGate && this.audioContext) {
-        // Fade out before disconnect to avoid pop
         this.micGate.gain.setTargetAtTime(0, this.audioContext.currentTime, 0.05);
     }
-    
     setTimeout(() => {
         if (this.rawStreamNode) {
             this.rawStreamNode.mediaStream.getTracks().forEach(t => t.stop());
@@ -223,7 +221,13 @@ export class EffectsEngine {
         
         // Build Modular Graph for Offline Context
         const graph = buildModularGraph(offlineCtx);
-        
+        if (params.cabinetModel === 'custom' && this.voiceGraph?.amp.cabinet['convolver'].buffer) {
+             // For offline export with custom IR, we need to clone the buffer
+             // Note: Accessing private properties via bracket notation for this specific export utility is a shortcut
+             // In production, we'd pass the buffer explicitly.
+             (graph.amp.cabinet as any)['convolver'].buffer = (this.voiceGraph.amp.cabinet as any)['convolver'].buffer;
+        }
+
         graph.update(params, 0);
         const source = offlineCtx.createBufferSource();
         source.buffer = audioBuffer;
@@ -263,12 +267,10 @@ export class JamEngine {
     nextNoteTime: number = 0;
     timerID: number | undefined;
     
-    // AI Audio Tracks
     aiTracks: Record<string, AudioBuffer> = {};
     aiSources: Record<string, AudioBufferSourceNode> = {};
     trackVolumes: Record<string, number> = { drums: 1, bass: 1, chord: 1, melody: 1 };
     
-    // Visualizer
     analyser: AnalyserNode | null = null;
     masterGain: GainNode | null = null;
 

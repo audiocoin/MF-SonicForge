@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { X, AlertTriangle, ExternalLink, Settings } from 'lucide-react';
+import React, { useRef } from 'react';
+import { X, AlertTriangle, ExternalLink, Settings, Upload } from 'lucide-react';
 
 export const ApiKeyWarning: React.FC = () => (
   <div className="flex flex-col items-center justify-center p-8 text-center h-full max-w-2xl mx-auto animate-in fade-in zoom-in duration-300">
@@ -66,30 +66,48 @@ export const ControlSlider: React.FC<{
   
   // Sizing based on style and size prop
   let heightClass = 'h-24';
-  if (style === 'amp') heightClass = 'h-32';
+  if (style === 'amp') heightClass = 'h-40'; // Taller to match EQ feel
   if (size === 'sm') heightClass = 'h-20';
 
   const widthClass = 'w-10';
   
-  const trackColor = style === 'amp' ? 'bg-gray-800' : 'bg-black/40';
-  const thumbColor = style === 'amp' ? 'bg-yellow-500' : style === 'interface' ? 'bg-red-500' : 'bg-gray-300';
+  // Amp style now mimics the EqSlider (Pro Fader)
+  const trackColor = style === 'amp' 
+    ? 'bg-black shadow-[inset_0_1px_4px_rgba(0,0,0,1)]' 
+    : (style === 'interface' ? 'bg-black/40' : 'bg-black/40');
+    
+  const thumbColor = style === 'amp' 
+    ? 'bg-gray-300 border border-gray-500 shadow-sm' 
+    : (style === 'interface' ? 'bg-red-500' : 'bg-gray-300');
+
+  // Hide fill level for amp style to act like a physical fader (like EqSlider)
+  const showFill = style !== 'amp';
 
   return (
     <div className="flex flex-col items-center gap-2 select-none group">
       <div className={`relative ${heightClass} ${widthClass} flex justify-center`}>
         {/* Track Background */}
-        <div className={`absolute top-0 bottom-0 w-1.5 ${trackColor} rounded-full shadow-inner`}>
-           {/* Tick marks */}
-           <div className="absolute top-[10%] left-2 w-1 h-px bg-gray-600/50"></div>
-           <div className="absolute top-[50%] left-2 w-2 h-px bg-gray-600/50"></div>
-           <div className="absolute bottom-[10%] left-2 w-1 h-px bg-gray-600/50"></div>
+        <div className={`absolute top-0 bottom-0 w-1.5 ${trackColor} rounded-full`}>
+           {/* Center mark for Amp/EQ style feels */}
+           {style === 'amp' && <div className="absolute top-1/2 left-0 w-full h-px bg-gray-700"></div>}
+           
+           {/* Tick marks (Generic) */}
+           {style !== 'amp' && (
+             <>
+               <div className="absolute top-[10%] left-2 w-1 h-px bg-gray-600/50"></div>
+               <div className="absolute top-[50%] left-2 w-2 h-px bg-gray-600/50"></div>
+               <div className="absolute bottom-[10%] left-2 w-1 h-px bg-gray-600/50"></div>
+             </>
+           )}
         </div>
 
-        {/* Fill Level */}
-        <div 
-            className="absolute bottom-0 w-1.5 rounded-b-full bg-current opacity-30 pointer-events-none"
-            style={{ height: `${percent}%`, color: style === 'amp' ? '#eab308' : '#fff' }}
-        />
+        {/* Fill Level (Hidden for Amp) */}
+        {showFill && (
+          <div 
+              className="absolute bottom-0 w-1.5 rounded-b-full bg-current opacity-30 pointer-events-none"
+              style={{ height: `${percent}%`, color: style === 'interface' ? '#ef4444' : '#fff' }}
+          />
+        )}
 
         {/* Input: Rotated -90deg to make vertical slider */}
         <input 
@@ -103,20 +121,20 @@ export const ControlSlider: React.FC<{
           title={`${label}: ${value}${unit}`}
         />
 
-        {/* Custom Thumb Visual */}
+        {/* Thumb Visual */}
         <div 
-          className={`absolute left-1/2 -translate-x-1/2 w-6 h-3 rounded shadow-[0_2px_4px_rgba(0,0,0,0.5)] border border-black/20 z-10 pointer-events-none
+          className={`absolute left-1/2 -translate-x-1/2 w-6 h-3 rounded shadow-[0_2px_4px_rgba(0,0,0,0.5)] z-10 pointer-events-none
             ${thumbColor} flex items-center justify-center`}
           style={{ bottom: `calc(${percent}% - 6px)` }}
         >
-          <div className="w-full h-px bg-white/50"></div>
+          <div className="w-full h-px bg-black/20"></div>
         </div>
       </div>
 
       {label && (
         <div className="text-center">
           <div className={`font-bold uppercase tracking-wider 
-            ${style === 'amp' ? 'text-[10px] text-yellow-500' : 
+            ${style === 'amp' ? 'text-[10px] text-gray-400' : 
               style === 'interface' ? 'text-[9px] text-gray-400' : 'text-[9px] text-gray-400'}`}>
             {label}
           </div>
@@ -180,7 +198,7 @@ export const Knob: React.FC<{
 
 // --- EQ SLIDER (Specialized for Graphic EQs) ---
 export const EqSlider: React.FC<{ freq: string; value: number; onChange: (v: number) => void }> = ({ freq, value, onChange }) => (
-    <div className="flex flex-col items-center h-44 gap-2 w-10">
+    <div className="flex flex-col items-center h-44 gap-2 w-10 flex-shrink-0">
         <div className="relative flex-1 w-full flex justify-center">
             {/* Track Visual */}
             <div className="absolute inset-y-0 w-1.5 bg-black rounded-full shadow-[inset_0_1px_4px_rgba(0,0,0,1)] pointer-events-none">
@@ -272,23 +290,30 @@ export const AudioInterfaceUnit: React.FC<{
   return (
     <div className="w-full bg-[#991b1b] rounded-lg shadow-2xl overflow-hidden border border-[#7f1d1d] relative">
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none z-10" />
-      <div className="flex flex-col md:flex-row h-full">
-        <div className="bg-[#0a0a0a] flex-1 flex items-center justify-between px-6 py-4 md:py-6 border-r border-[#333]">
-          <div className="flex items-center gap-6">
-            <div className="relative w-12 h-12 rounded-full bg-[#1a1a1a] border-2 border-[#333] flex items-center justify-center shadow-inner">
+      <div className="flex flex-col sm:flex-row h-full">
+        {/* Main Controls Panel */}
+        <div className="bg-[#0a0a0a] flex-1 flex flex-col sm:flex-row items-center sm:justify-between gap-4 px-4 py-4 md:py-6 border-r border-[#333]">
+          
+          {/* Input Gain Section */}
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center">
+            <div className="relative w-12 h-12 rounded-full bg-[#1a1a1a] border-2 border-[#333] flex items-center justify-center shadow-inner shrink-0">
                <div className="w-8 h-8 rounded-full border border-[#444] flex items-center justify-center"><div className="w-2 h-2 bg-black rounded-full" /></div>
-               <div className="absolute -bottom-4 text-[9px] text-gray-500 font-bold">INPUT 1</div>
+               <div className="absolute -bottom-4 text-[9px] text-gray-500 font-bold whitespace-nowrap">INPUT 1</div>
             </div>
-            <div className="relative">
+            
+            <div className="relative shrink-0">
                <div className={`absolute -right-3 top-0 bottom-0 w-1 rounded-full transition-colors duration-100 ${isClipping ? 'bg-red-500 shadow-[0_0_8px_red]' : isSignalPresent ? 'bg-green-500 shadow-[0_0_8px_green]' : 'bg-gray-800'}`} />
                <ControlSlider value={gain} min={0} max={3} step={0.1} onChange={onGainChange} style="interface" label="GAIN" />
             </div>
-            <div className="flex flex-col gap-2">
+
+            <div className="flex flex-col gap-2 shrink-0">
                <button onClick={onToggleInst} className={`px-2 py-1 text-[9px] font-bold border rounded transition-all flex items-center gap-1 ${isInstMode ? 'bg-red-900/50 border-red-500 text-red-400' : 'bg-[#1a1a1a] border-[#333] text-gray-500'}`}>INST <div className={`w-1 h-1 rounded-full ${isInstMode ? 'bg-red-500' : 'bg-gray-800'}`} /></button>
                <button onClick={onToggleAir} className={`px-2 py-1 text-[9px] font-bold border rounded transition-all flex items-center gap-1 ${isAirMode ? 'bg-yellow-900/50 border-yellow-500 text-yellow-400' : 'bg-[#1a1a1a] border-[#333] text-gray-500'}`}>AIR <div className={`w-1 h-1 rounded-full ${isAirMode ? 'bg-yellow-500' : 'bg-gray-800'}`} /></button>
             </div>
           </div>
-          <div className="flex items-center gap-6 border-l border-[#222] pl-6">
+
+          {/* Monitor Section */}
+          <div className="flex items-center gap-6 border-t sm:border-t-0 sm:border-l border-[#222] pt-4 sm:pt-0 sm:pl-6 w-full sm:w-auto justify-center">
              <div className="flex flex-col items-center gap-2">
                 <button onClick={onToggleMonitor} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all shadow-lg active:translate-y-px ${isMonitorOn ? 'bg-gray-800 border-white/80' : 'bg-[#1a1a1a] border-[#333]'}`}><div className={`w-1.5 h-1.5 bg-white rounded-full ${isMonitorOn ? 'opacity-100' : 'opacity-0'}`} /></button>
                 <span className="text-[9px] text-gray-400 font-bold tracking-tight">DIRECT</span>
@@ -298,7 +323,9 @@ export const AudioInterfaceUnit: React.FC<{
              </div>
           </div>
         </div>
-        <div className="bg-[#991b1b] p-4 flex flex-col justify-center gap-2 min-w-[140px]">
+        
+        {/* Output/Branding Section */}
+        <div className="bg-[#991b1b] p-4 flex flex-col justify-center gap-2 w-full sm:w-auto sm:min-w-[140px] border-t sm:border-t-0 sm:border-l border-[#7f1d1d]">
            <div className="flex items-center gap-1 text-white/80"><span className="text-[10px] font-bold tracking-widest uppercase">Scarlett</span></div>
            <select value={selectedDeviceId} onChange={(e) => onDeviceChange(e.target.value)} className="bg-black/30 text-white text-[10px] rounded border border-white/10 px-2 py-1 outline-none w-full">
              {devices.length === 0 && <option value="">Default Input</option>}
@@ -308,4 +335,48 @@ export const AudioInterfaceUnit: React.FC<{
       </div>
     </div>
   );
+};
+
+// --- IR LOADER ---
+export const IrLoader: React.FC<{
+    currentModel: string;
+    onLoad: (file: File) => void;
+    onSelectModel: (model: string) => void;
+}> = ({ currentModel, onLoad, onSelectModel }) => {
+    const fileInput = useRef<HTMLInputElement>(null);
+    return (
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-2 flex flex-col gap-2">
+           <div className="flex justify-between items-center px-1">
+               <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Cabinet Pro</span>
+               <div className="flex gap-1">
+                   <button onClick={() => onSelectModel('bypass')} className={`px-2 py-0.5 text-[9px] rounded border ${currentModel === 'bypass' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-800 border-gray-800 text-gray-600'}`}>OFF</button>
+                   <button onClick={() => onSelectModel('modern-4x12')} className={`px-2 py-0.5 text-[9px] rounded border ${currentModel === 'modern-4x12' ? 'bg-primary-900/50 border-primary-500 text-primary-400' : 'bg-gray-800 border-gray-800 text-gray-600'}`}>4x12</button>
+                   <button onClick={() => onSelectModel('vintage-1x12')} className={`px-2 py-0.5 text-[9px] rounded border ${currentModel === 'vintage-1x12' ? 'bg-amber-900/50 border-amber-500 text-amber-400' : 'bg-gray-800 border-gray-800 text-gray-600'}`}>1x12</button>
+               </div>
+           </div>
+           
+           <div 
+             onClick={() => fileInput.current?.click()}
+             className={`border-2 border-dashed rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer transition-colors
+             ${currentModel === 'custom' ? 'border-green-500 bg-green-500/5' : 'border-gray-700 hover:border-gray-500 hover:bg-gray-800'}`}
+           >
+              <input 
+                 type="file" 
+                 accept=".wav" 
+                 ref={fileInput} 
+                 className="hidden" 
+                 onChange={(e) => {
+                     if (e.target.files?.[0]) {
+                         onLoad(e.target.files[0]);
+                         onSelectModel('custom');
+                     }
+                 }} 
+              />
+              <Upload className={`w-4 h-4 mb-1 ${currentModel === 'custom' ? 'text-green-500' : 'text-gray-400'}`} />
+              <span className={`text-[9px] font-bold ${currentModel === 'custom' ? 'text-green-500' : 'text-gray-500'}`}>
+                  {currentModel === 'custom' ? 'CUSTOM IR ACTIVE' : 'LOAD IR (.wav)'}
+              </span>
+           </div>
+        </div>
+    );
 };

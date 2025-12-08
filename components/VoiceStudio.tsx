@@ -6,6 +6,7 @@ import { Mic, Radio, Download, Trash2, Play, Activity, Sliders, AudioLines, Load
 import { ControlSlider, Stompbox, AudioInterfaceUnit } from './SharedAudioUI';
 
 const DEFAULT_PARAMS: EffectParams = {
+  cabinetModel: 'bypass',
   gain: 1.0,
   distortion: 0,
   eqLow: 0,

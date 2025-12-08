@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
     // Load env file based on `mode` in the current working directory.
-    const env = loadEnv(mode, process.cwd(), '');
+    const env = loadEnv(mode, path.resolve('.'), '');
     
     // Safely get API Key from various possible naming conventions (Vercel, Local, etc.)
     const apiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || env.API_KEY || process.env.GEMINI_API_KEY || "";

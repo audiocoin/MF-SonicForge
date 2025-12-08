@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EffectsEngine } from '../services/audioEngine';
 import { EffectParams, AudioTake } from '../types';
-import { Sliders, Mic, Play, Square, Save, RotateCcw, Power, Headphones, StopCircle, Trash2, AudioLines, Download, Repeat, Loader2, Plus, X } from 'lucide-react';
-import { ControlSlider, Stompbox, AudioInterfaceUnit, EqSlider } from './SharedAudioUI';
+import { Sliders, Mic, Play, Square, Save, RotateCcw, Power, Headphones, StopCircle, Trash2, AudioLines, Download, Repeat, Loader2, Plus, X, Upload, Share2 } from 'lucide-react';
+import { ControlSlider, Stompbox, AudioInterfaceUnit, EqSlider, IrLoader } from './SharedAudioUI';
 
 const DEFAULT_PARAMS: EffectParams = {
   ampModel: 'clean',
+  cabinetModel: 'modern-4x12',
   gain: 1.0,
   distortion: 0,
   eqLow: 0,
@@ -55,6 +56,7 @@ const AMP_MODELS = [
 const GUITAR_PRESETS: Record<string, Partial<EffectParams>> = {
   'Clean Funk': { 
     ampModel: 'clean',
+    cabinetModel: 'vintage-1x12',
     gain: 0.8, distortion: 0, eqLow: -2, eqMid: 2, eqHigh: 4, 
     enableCompressor: true, enableReverb: true,
     compressorThreshold: -20, compressorRatio: 8, reverbMix: 0.15,
@@ -62,6 +64,7 @@ const GUITAR_PRESETS: Record<string, Partial<EffectParams>> = {
   },
   'Texas Blues': { 
     ampModel: 'crunch',
+    cabinetModel: 'vintage-1x12',
     gain: 1.0, distortion: 5, eqLow: 2, eqMid: 4, eqHigh: 2, 
     enableOverdrive: true, enableReverb: true,
     overdriveDrive: 40, overdriveTone: 60, reverbMix: 0.2, reverbDecay: 1.2,
@@ -69,6 +72,7 @@ const GUITAR_PRESETS: Record<string, Partial<EffectParams>> = {
   },
   'Metal Lead': { 
     ampModel: 'modern',
+    cabinetModel: 'modern-4x12',
     gain: 2.0, distortion: 80, eqLow: 6, eqMid: -4, eqHigh: 8, 
     enableSupernova: true, enableDelay: true,
     supernovaDrive: 70, supernovaTone: 80, delayTime: 0.35, delayFeedback: 0.4,
@@ -76,6 +80,7 @@ const GUITAR_PRESETS: Record<string, Partial<EffectParams>> = {
   },
   'Ambient Swell': { 
     ampModel: 'clean',
+    cabinetModel: 'modern-4x12',
     gain: 1.0, distortion: 0, 
     enableCompressor: true, enableReverb: true, enableChorus: true, enableDelay: true, enableTremolo: true,
     reverbMix: 0.7, reverbDecay: 6.0, delayTime: 0.5, delayFeedback: 0.6, chorusDepth: 60,
@@ -97,6 +102,9 @@ const EffectsStudio: React.FC = () => {
   const [params, setParams] = useState<EffectParams>(DEFAULT_PARAMS);
   const [activePreset, setActivePreset] = useState('Clean Funk');
   const [boardLayout, setBoardLayout] = useState<string[]>(['compressor', 'supernova', 'overdrive', 'chorus', 'delay', 'reverb']);
+  const [userPresets, setUserPresets] = useState<Record<string, Partial<EffectParams>>>({});
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
   
   // Interface State
   const [isMonitorOn, setIsMonitorOn] = useState(false);
@@ -117,17 +125,37 @@ const EffectsStudio: React.FC = () => {
   const engine = useRef<EffectsEngine | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
+  const presetImportRef = useRef<HTMLInputElement>(null);
+
+  // Load User Presets
+  useEffect(() => {
+    const saved = localStorage.getItem('sonicforge_user_presets');
+    if (saved) {
+        setUserPresets(JSON.parse(saved));
+    }
+  }, []);
 
   useEffect(() => {
     engine.current = new EffectsEngine({});
     loadPreset('Clean Funk');
-    // We initially just get the list without prompting permissions
     EffectsEngine.getAudioInputs().then(setDevices);
     return () => {
       cancelAnimationFrame(animationRef.current!);
       engine.current?.stop();
     };
   }, []);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement)) {
+            e.preventDefault();
+            toggleRecord(); 
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRecording, isMonitorOn, selectedDeviceId, params]);
 
   useEffect(() => {
     if (engine.current) engine.current.updateParams(params);
@@ -136,25 +164,94 @@ const EffectsStudio: React.FC = () => {
   const handleDeviceChange = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
     if (isMonitorOn || isRecording) {
-        // Restart mic with new device if active
         await engine.current?.startMic(deviceId);
     }
   };
 
   const refreshDevices = async () => {
-      // Refresh list with full labels now that we have permission
       const devs = await EffectsEngine.getAudioInputs();
       setDevices(devs);
+  };
+  
+  const handleIrLoad = (file: File) => {
+      engine.current?.loadCabIR(file);
+      update('cabinetModel', 'custom');
   };
 
   const loadPreset = (name: string) => {
     setActivePreset(name);
-    setParams({ ...DEFAULT_PARAMS, ...GUITAR_PRESETS[name] });
-    // Auto-populate board based on enabled effects in preset
-    const newBoard = [...boardLayout];
-    if (GUITAR_PRESETS[name].enableTremolo && !newBoard.includes('tremolo')) newBoard.push('tremolo');
-    if (GUITAR_PRESETS[name].enableOverdrive && !newBoard.includes('overdrive')) newBoard.push('overdrive');
-    setBoardLayout(newBoard);
+    
+    // Check Factory then User
+    const factory = GUITAR_PRESETS[name];
+    const user = userPresets[name];
+    const presetData = factory || user;
+
+    if (presetData) {
+        setParams({ ...DEFAULT_PARAMS, ...presetData });
+        
+        const newBoard = [...boardLayout];
+        if (presetData.enableTremolo && !newBoard.includes('tremolo')) newBoard.push('tremolo');
+        if (presetData.enableOverdrive && !newBoard.includes('overdrive')) newBoard.push('overdrive');
+        if (presetData.enableSupernova && !newBoard.includes('supernova')) newBoard.push('supernova');
+        if (presetData.enableChorus && !newBoard.includes('chorus')) newBoard.push('chorus');
+        if (presetData.enableDelay && !newBoard.includes('delay')) newBoard.push('delay');
+        if (presetData.enableReverb && !newBoard.includes('reverb')) newBoard.push('reverb');
+        setBoardLayout(newBoard);
+    }
+  };
+
+  const saveUserPreset = () => {
+      if (!newPresetName.trim()) return;
+      const newPresets = { ...userPresets, [newPresetName]: params };
+      setUserPresets(newPresets);
+      localStorage.setItem('sonicforge_user_presets', JSON.stringify(newPresets));
+      setActivePreset(newPresetName);
+      setShowSaveModal(false);
+      setNewPresetName('');
+  };
+
+  const deleteUserPreset = (name: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newPresets = { ...userPresets };
+      delete newPresets[name];
+      setUserPresets(newPresets);
+      localStorage.setItem('sonicforge_user_presets', JSON.stringify(newPresets));
+      if (activePreset === name) setActivePreset('Custom');
+  };
+  
+  // DISTRIBUTION: Export Preset
+  const exportPreset = () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", (activePreset || "custom_tone") + ".sonicforge");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+  };
+  
+  // DISTRIBUTION: Import Preset
+  const importPreset = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const importedParams = JSON.parse(event.target?.result as string);
+              // Basic validation check
+              if (typeof importedParams.gain === 'number') {
+                  setParams({ ...DEFAULT_PARAMS, ...importedParams });
+                  setActivePreset("Imported");
+              } else {
+                  alert("Invalid SonicForge preset file.");
+              }
+          } catch(err) {
+              alert("Error reading preset file.");
+          }
+      };
+      reader.readAsText(file);
+      // Reset input
+      e.target.value = '';
   };
 
   const update = (key: keyof EffectParams, val: any) => {
@@ -168,26 +265,20 @@ const EffectsStudio: React.FC = () => {
 
   const removePedal = (id: string) => {
       setBoardLayout(prev => prev.filter(p => p !== id));
-      // Also disable the effect
       const pedal = AVAILABLE_PEDALS.find(p => p.id === id);
       if (pedal) update(pedal.param as keyof EffectParams, false);
   };
 
-  // Toggle Monitors - STRICT MIC CONTROL
   const toggleMonitor = async () => {
     const newState = !isMonitorOn;
     setIsMonitorOn(newState);
-    
     if (newState) {
-        // Turn ON Mic
         await engine.current?.startMic(selectedDeviceId);
         engine.current?.setMonitor(true);
         drawVisualizer();
         refreshDevices();
     } else {
-        // Turn OFF Monitor
         engine.current?.setMonitor(false);
-        // Only stop mic if not recording
         if (!isRecording) {
             engine.current?.stopMicStream();
             setIsSignalPresent(false);
@@ -225,7 +316,6 @@ const EffectsStudio: React.FC = () => {
       for (let i = 0; i < bufferLength; i++) sum += Math.abs(dataArray[i] - 128);
       const avg = sum / bufferLength;
       
-      // Only show signal if mic is actually active
       if (isRecording || isMonitorOn) {
          setIsSignalPresent(avg > 2);
          setIsClipping(avg > 100);
@@ -253,17 +343,14 @@ const EffectsStudio: React.FC = () => {
     draw();
   };
 
-  // Toggle Record - STRICT MIC CONTROL
   const toggleRecord = async () => {
     if (isRecording) {
-      // STOP RECORDING
       const blob = await engine.current?.stopRecording();
       if (blob) {
         setTakes(prev => [{ id: Date.now().toString(), blob, name: `Guitar Take ${takes.length + 1}`, date: new Date(), duration: 0 }, ...prev]);
       }
       setIsRecording(false);
       
-      // Only stop mic if Monitor is OFF
       if (!isMonitorOn) {
           engine.current?.stopMicStream();
           setIsSignalPresent(false);
@@ -271,7 +358,6 @@ const EffectsStudio: React.FC = () => {
           cancelAnimationFrame(animationRef.current!);
       }
     } else {
-      // START RECORDING
       await engine.current?.startMic(selectedDeviceId);
       engine.current?.updateParams(params);
       engine.current?.startRecording();
@@ -344,15 +430,22 @@ const EffectsStudio: React.FC = () => {
             <div className="flex-1 bg-gray-950 rounded-xl border border-gray-800 relative overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[140px]">
                <canvas ref={canvasRef} width={400} height={160} className="w-full h-full absolute inset-0" />
                <div className="absolute top-2 left-2 text-[9px] text-yellow-500/50 font-mono tracking-widest border border-yellow-900/50 px-1 rounded">SCOPE</div>
-               {isRecording && <div className="absolute top-2 right-2 flex items-center gap-1.5"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div><span className="text-[9px] text-red-500 font-bold tracking-widest">REC</span></div>}
+               {isRecording && <div className="absolute top-2 right-2 flex items-center gap-1.5"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_red]"></div><span className="text-[9px] text-red-500 font-bold tracking-widest">REC (Space)</span></div>}
             </div>
+            
+            {/* CABINET PRO LOADER */}
+            <IrLoader 
+               currentModel={params.cabinetModel} 
+               onLoad={handleIrLoad} 
+               onSelectModel={(m) => update('cabinetModel', m)} 
+            />
           </div>
 
           {/* Amp & Pedals */}
           <div className="lg:w-2/3 flex flex-col gap-4">
              
              {/* Amp Selector */}
-             <div className="grid grid-cols-4 gap-2">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {AMP_MODELS.map(amp => (
                   <div 
                     key={amp.id}
@@ -374,24 +467,26 @@ const EffectsStudio: React.FC = () => {
                 <div className={`bg-gradient-to-r ${activeAmp.gradient} h-10 border-b border-gray-600 flex items-center justify-between px-6 transition-colors duration-500`}>
                    <div className="flex items-center gap-2">
                      <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_6px] animate-pulse ${activeAmp.led} shadow-${activeAmp.led.split('-')[1]}-500`}></div>
-                     <span className="text-xs font-black text-gray-200 tracking-[0.2em]">MF SONICFORGE</span>
+                     <span className="text-xs font-black text-gray-200 tracking-[0.2em] hidden sm:inline">MF SONICFORGE</span>
                      <span className={`text-xs font-bold ${activeAmp.accent} tracking-wide transition-colors duration-300`}>{activeAmp.name.toUpperCase()}</span>
                    </div>
-                   <span className="text-[9px] text-gray-400 font-mono tracking-widest uppercase hidden sm:block">{activeAmp.description}</span>
+                   <span className="text-[9px] text-gray-400 font-mono tracking-widest uppercase hidden md:block">{activeAmp.description}</span>
                 </div>
-                <div className="p-6 bg-[#1a1a1a] relative flex flex-wrap justify-between items-end px-4 md:px-10">
+                <div className="p-6 bg-[#1a1a1a] relative flex flex-wrap justify-center sm:justify-between items-end gap-4 px-4 md:px-10">
                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] opacity-20 pointer-events-none"></div>
                    
-                   <div className="flex flex-col items-center justify-end pb-2">
+                   <div className="flex flex-col items-center justify-end pb-2 hidden sm:flex">
                         <span className="text-gray-600 text-[10px] font-mono mb-2 uppercase tracking-widest">Pre-Amp</span>
                         <div className="w-full h-px bg-gray-700"></div>
                    </div>
 
                    <ControlSlider label="Drive" value={params.distortion} min={0} max={100} style="amp" onChange={v => update('distortion', v)} />
-                   <div className="w-px h-16 bg-gray-700 mx-2"></div>
-                   <ControlSlider label="Bass" value={params.eqLow} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqLow', v)} />
-                   <ControlSlider label="Mid" value={params.eqMid} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqMid', v)} />
-                   <ControlSlider label="Treble" value={params.eqHigh} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqHigh', v)} />
+                   <div className="w-px h-16 bg-gray-700 mx-2 hidden sm:block"></div>
+                   <div className="flex gap-4 sm:gap-6 flex-wrap justify-center">
+                     <ControlSlider label="Bass" value={params.eqLow} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqLow', v)} />
+                     <ControlSlider label="Mid" value={params.eqMid} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqMid', v)} />
+                     <ControlSlider label="Treble" value={params.eqHigh} min={-20} max={20} unit="dB" style="amp" onChange={v => update('eqHigh', v)} />
+                   </div>
                 </div>
              </div>
 
@@ -401,7 +496,8 @@ const EffectsStudio: React.FC = () => {
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">SF-EQ9 Graphic Equalizer</span>
                     <div className="flex gap-1"><div className="w-1 h-1 bg-green-500 rounded-full"></div></div>
                  </div>
-                 <div className="p-4 bg-gray-900 grid grid-cols-9 gap-2">
+                 {/* Changed to flex with overflow for mobile scrolling */}
+                 <div className="p-4 bg-gray-900 flex overflow-x-auto gap-2 custom-scrollbar pb-4 items-center">
                     <EqSlider freq="63" value={params.eq63} onChange={v => update('eq63', v)} />
                     <EqSlider freq="125" value={params.eq125} onChange={v => update('eq125', v)} />
                     <EqSlider freq="250" value={params.eq250} onChange={v => update('eq250', v)} />
@@ -427,14 +523,12 @@ const EffectsStudio: React.FC = () => {
                                 {p.name}
                             </button>
                         ))}
-                        {AVAILABLE_PEDALS.filter(p => !boardLayout.includes(p.id)).length === 0 && <div className="px-4 py-2 text-xs text-gray-500 italic">All pedals added</div>}
                     </div>
                 </div>
              </div>
 
              {/* Pedals Grid */}
-             <div className="flex flex-wrap gap-4 p-4 bg-black/40 rounded-xl border border-gray-800 min-h-[200px] items-start">
-                
+             <div className="flex flex-wrap gap-4 p-4 bg-black/40 rounded-xl border border-gray-800 min-h-[200px] items-start justify-center">
                 {boardLayout.map(pedalId => {
                     switch(pedalId) {
                         case 'compressor': return (
@@ -481,23 +575,56 @@ const EffectsStudio: React.FC = () => {
                         default: return null;
                     }
                 })}
-
-                {boardLayout.length === 0 && (
-                    <div className="w-full h-32 flex flex-col items-center justify-center text-gray-600 border-2 border-dashed border-gray-700 rounded-lg">
-                        <span className="text-sm font-mono">Pedalboard Empty</span>
-                        <span className="text-xs">Add pedals using the menu above</span>
-                    </div>
-                )}
              </div>
 
-             {/* Presets */}
-             <div className="bg-black rounded-lg border border-gray-800 p-3 flex items-center justify-between overflow-x-auto">
-               <div className="flex gap-2">
-                 {Object.keys(GUITAR_PRESETS).map(name => (
-                   <button key={name} onClick={() => loadPreset(name)} className={`px-3 py-1 text-xs font-bold rounded border whitespace-nowrap ${activePreset === name ? 'bg-yellow-600 border-yellow-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>{name}</button>
-                 ))}
+             {/* Presets Manager */}
+             <div className="bg-black rounded-lg border border-gray-800 p-3 flex flex-col gap-3 overflow-x-auto">
+               <div className="flex items-center justify-between min-w-[300px]">
+                   <div className="flex gap-2 items-center">
+                       <span className="text-[10px] font-bold text-gray-500 uppercase">Factory:</span>
+                       {Object.keys(GUITAR_PRESETS).map(name => (
+                         <button key={name} onClick={() => loadPreset(name)} className={`px-2 py-1 text-[10px] font-bold rounded border whitespace-nowrap ${activePreset === name ? 'bg-yellow-600 border-yellow-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>{name}</button>
+                       ))}
+                   </div>
+                   <div className="flex gap-2 ml-4">
+                       <button onClick={() => setShowSaveModal(true)} className="px-2 py-1 text-[10px] font-bold rounded border bg-gray-800 border-gray-600 text-gray-300 hover:text-white flex items-center gap-1 whitespace-nowrap"><Save className="w-3 h-3" /> Save Preset</button>
+                       <button onClick={exportPreset} className="px-2 py-1 text-[10px] font-bold rounded border bg-gray-800 border-gray-600 text-gray-300 hover:text-white flex items-center gap-1 whitespace-nowrap"><Share2 className="w-3 h-3" /> Export</button>
+                       <label className="px-2 py-1 text-[10px] font-bold rounded border bg-gray-800 border-gray-600 text-gray-300 hover:text-white flex items-center gap-1 whitespace-nowrap cursor-pointer">
+                           <Upload className="w-3 h-3" /> Import
+                           <input type="file" className="hidden" accept=".sonicforge" onChange={importPreset} />
+                       </label>
+                       <button onClick={() => setParams(DEFAULT_PARAMS)} title="Reset"><RotateCcw className="w-4 h-4 text-gray-500" /></button>
+                   </div>
                </div>
-               <button onClick={() => setParams(DEFAULT_PARAMS)} title="Reset"><RotateCcw className="w-4 h-4 text-gray-500" /></button>
+               
+               {/* User Presets */}
+               {Object.keys(userPresets).length > 0 && (
+                   <div className="flex gap-2 items-center pt-2 border-t border-gray-800 min-w-[300px]">
+                       <span className="text-[10px] font-bold text-gray-500 uppercase">My Tones:</span>
+                       {Object.keys(userPresets).map(name => (
+                         <div key={name} className="relative group">
+                            <button onClick={() => loadPreset(name)} className={`px-2 py-1 text-[10px] font-bold rounded border whitespace-nowrap pr-6 ${activePreset === name ? 'bg-primary-600 border-primary-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>{name}</button>
+                            <button onClick={(e) => deleteUserPreset(name, e)} className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                         </div>
+                       ))}
+                   </div>
+               )}
+               
+               {/* Save Modal (Inline) */}
+               {showSaveModal && (
+                   <div className="flex items-center gap-2 animate-in slide-in-from-top-2 pt-2">
+                       <input 
+                         type="text" 
+                         value={newPresetName} 
+                         onChange={(e) => setNewPresetName(e.target.value)} 
+                         placeholder="Preset Name..."
+                         className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-primary-500 w-full"
+                         autoFocus
+                       />
+                       <button onClick={saveUserPreset} className="bg-primary-600 px-3 py-1 rounded text-xs font-bold text-white">Save</button>
+                       <button onClick={() => setShowSaveModal(false)} className="bg-gray-700 px-3 py-1 rounded text-xs font-bold text-gray-300">Cancel</button>
+                   </div>
+               )}
              </div>
           </div>
         </div>
@@ -545,7 +672,7 @@ const EffectsStudio: React.FC = () => {
                    </div>
                  )}
                  {takes.map(take => (
-                   <div key={take.id} className={`bg-gray-800/50 hover:bg-gray-800 p-2 rounded border border-transparent hover:border-gray-700 flex items-center justify-between group transition-all ${playingTakeId === take.id ? 'border-l-4 border-l-yellow-500 bg-gray-800' : ''}`}>
+                   <div key={take.id} className={`bg-gray-800/50 hover:bg-gray-800 p-2 rounded border border-transparent hover:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between group transition-all gap-2 ${playingTakeId === take.id ? 'border-l-4 border-l-yellow-500 bg-gray-800' : ''}`}>
                       <div className="flex items-center gap-3">
                          <div className="flex items-center gap-1">
                            <button 
@@ -574,7 +701,7 @@ const EffectsStudio: React.FC = () => {
                          </div>
                       </div>
                       
-                      <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity self-end sm:self-auto">
                          <button 
                             onClick={() => downloadRaw(take)}
                             className="px-2 py-1 text-[10px] font-bold text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded" 

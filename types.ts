@@ -30,6 +30,9 @@ export interface EffectParams {
   // Amp Model Selection
   ampModel?: string;
 
+  // Cabinet Model
+  cabinetModel: string; // 'bypass', 'modern-4x12', 'vintage-1x12', 'custom'
+
   // Pre-Amp / Drive
   gain: number;
   distortion: number;

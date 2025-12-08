@@ -4,6 +4,7 @@ import { CleanAmp } from './amps/CleanAmp';
 import { CrunchAmp } from './amps/CrunchAmp';
 import { ModernAmp } from './amps/ModernAmp';
 import { BassAmp } from './amps/BassAmp';
+import { CabinetSimulator } from './amps/CabinetSimulator';
 
 export class AmpEngine {
   input: GainNode;
@@ -21,6 +22,10 @@ export class AmpEngine {
   private modernGate: GainNode;
   private bassGate: GainNode;
 
+  // Cabinet
+  public cabinet: CabinetSimulator;
+  private ampOut: GainNode;
+
   constructor(ctx: BaseAudioContext) {
     this.input = ctx.createGain();
     this.output = ctx.createGain();
@@ -31,33 +36,40 @@ export class AmpEngine {
     this.modernAmp = new ModernAmp(ctx);
     this.bassAmp = new BassAmp(ctx);
     
-    // Instantiate Gates (Selector Switches)
+    // Instantiate Gates
     this.cleanGate = ctx.createGain();
     this.crunchGate = ctx.createGain();
     this.modernGate = ctx.createGain();
     this.bassGate = ctx.createGain();
+
+    this.ampOut = ctx.createGain();
     
-    // Connect Input -> Amps -> Gates -> Output
+    // Connect Input -> Amps -> Gates -> AmpOut
     
     // Clean Path
     this.input.connect(this.cleanAmp.input);
     this.cleanAmp.output.connect(this.cleanGate);
-    this.cleanGate.connect(this.output);
+    this.cleanGate.connect(this.ampOut);
     
     // Crunch Path
     this.input.connect(this.crunchAmp.input);
     this.crunchAmp.output.connect(this.crunchGate);
-    this.crunchGate.connect(this.output);
+    this.crunchGate.connect(this.ampOut);
     
     // Modern Path
     this.input.connect(this.modernAmp.input);
     this.modernAmp.output.connect(this.modernGate);
-    this.modernGate.connect(this.output);
+    this.modernGate.connect(this.ampOut);
     
     // Bass Path
     this.input.connect(this.bassAmp.input);
     this.bassAmp.output.connect(this.bassGate);
-    this.bassGate.connect(this.output);
+    this.bassGate.connect(this.ampOut);
+    
+    // Cabinet Stage
+    this.cabinet = new CabinetSimulator(ctx);
+    this.ampOut.connect(this.cabinet.input);
+    this.cabinet.output.connect(this.output);
     
     // Default: Clean selected
     this.cleanGate.gain.value = 1;
@@ -82,5 +94,8 @@ export class AmpEngine {
       this.crunchGate.gain.setTargetAtTime(model === 'crunch' ? 1 : 0, time, fadeTime);
       this.modernGate.gain.setTargetAtTime(model === 'modern' ? 1 : 0, time, fadeTime);
       this.bassGate.gain.setTargetAtTime(model === 'bass' ? 1 : 0, time, fadeTime);
+
+      // Update Cabinet
+      this.cabinet.update(params.cabinetModel || 'bypass');
   }
 }
